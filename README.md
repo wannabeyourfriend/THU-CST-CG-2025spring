@@ -4,7 +4,7 @@
 >
 > `wang-zx23@mails.tsinghua.edu.cn`
 >
-> Lecture Instructor: 胡事明
+> Lecture Instructor: 胡事民
 
 [TOC]
 
