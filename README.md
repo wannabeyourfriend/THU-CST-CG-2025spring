@@ -8,6 +8,20 @@
 
 [TOC]
 
+### 清华大学学生纪律处分管理规定实施细则
+
+#### 第六章　学术不端、违反学习纪律的行为与处分
+
+第二十一条 有下列违反课程学习纪律情形之一的，给予警告以上、留校察看以下处分：
+
+（一）课程作业抄袭严重的；
+
+（二）实验报告抄袭严重或者篡改实验数据的；
+
+（三）期中、期末课程论文抄袭严重的；
+
+（四）在课程学习过程中严重弄虚作假的其他情形。
+
 ## 1 图形学基本概念
 
 ### 1.1 颜色视觉
@@ -123,4 +137,26 @@ $$
 蒙特卡洛光线追踪：
 
 估计渲染方程
+
+
+
+
+
+## 包围盒计算
+
+采用三角面片模型和光线直接求交会导致$\mathcal{o}(n)$的时间复杂，用包围box对于光线进行求交前置判断
+
+- 包围盒：
+
+
+
+
+
+- ​	隐式表面的包围盒计算
+  - 由于隐式表示是$F(x,y,z) =  0$,则对$ax+by+cz = 0$做拉格朗日乘子求min和max值，
+
+- 包围球（boungding ball）
+- ![img](https://thu-private-qn.yuketang.cn/slide/15752853/cover512_20250318075030.jpg?e=1742278473&token=IAM-gs8ue1pDIGwtR1CR0Zjdagg7Q2tn5G_1BqTmhmqa:j7Cpb1gV8JaR1r2TXn6Yb2kGDKU=)
+
+![img](https://thu-private-qn.yuketang.cn/slide/15752853/cover620_20250318075030.jpg?e=1742278473&token=IAM-gs8ue1pDIGwtR1CR0Zjdagg7Q2tn5G_1BqTmhmqa:bIfPBmzRkH-KHRneR7FUi_YvPx0=)
 
