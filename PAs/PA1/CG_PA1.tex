@@ -1,0 +1,387 @@
+\documentclass[a4paper,twoside]{article}
+
+\usepackage[UTF8, scheme = plain]{ctex}%提供中文支持的包,与XeLaTeX一起使用
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{minted}% 语法高亮和代码样式设置方面更加强大和灵活
+\usepackage{listings}% 引入listings包,用于在文档中插入代码,并可自定义代码样式
+\usepackage[a4paper, total={7in, 11in}, top=0.2in]{geometry}
+
+\title{Computer Graphic PA1}
+\author{
+  王子轩\\
+  \texttt{2023011307} \\
+  \texttt{wang-zx23@mails.tsinghua.edu.cn} \\
+}
+\date{2025/4/11}
+
+\begin{document}
+\maketitle
+\section{Algorithm Implemention}
+\subsection{主函数光线投射基本原理}
+通过模拟光线在场景中的传播来计算每个像素的颜色.基本思想是从视点(相机)向场景中的每个像素发射光线,然后追踪这些光线与场景中物体的交点,并使用Phong光照模型计算这些交点处的光照效果,最后将计算得到的颜色值赋给对应的像素.
+\begin{algorithm}[H]
+    \caption{Basic Ray Tracing Algorithm}
+    \label{alg:raytracing}
+    \begin{algorithmic}[1]
+        \REQUIRE Scene description, camera parameters, output image dimensions
+        \ENSURE Rendered image
+        \STATE Parse scene, obtain objects and light sources
+        \STATE Initialize output image
+        
+        \FOR{each pixel $(x, y)$}
+            \STATE Generate ray from camera toward pixel $ray$
+            \STATE Initialize nearest intersection info $hit$
+            \STATE Compute ray intersection with all scene objects
+            
+            \IF{intersection exists}
+                \STATE Initialize pixel color $color = (0, 0, 0)$
+                \FOR{each light source in scene}
+                    \STATE Calculate light illumination at intersection point
+                    \STATE Compute color contribution using Phong model
+                    \STATE Add color contribution to $color$
+                \ENDFOR
+                \STATE Assign $color$ to pixel $(x, y)$
+            \ELSE
+                \STATE Assign background color to pixel $(x, y)$
+            \ENDIF
+        \ENDFOR
+        
+        \STATE Output rendered image
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{listing}[H]
+    \caption{实现主渲染循环}
+    \label{code:main_loop}
+    \begin{minted}{cpp}
+    int main(int argc, char *argv[]) {
+        for (int argNum = 1; argNum < argc; ++argNum) {
+            std::cout << "Argument " << argNum << " is: " << argv[argNum] << std::endl;
+        }
+        if (argc != 3) {
+            cout << "Usage: ./bin/PA1 <input scene file> <output bmp file>" << endl;
+            return 1;
+        }
+        string inputFile = argv[1];
+        string outputFile = argv[2];  
+        SceneParser sceneParser(inputFile.c_str());
+        Camera* camera = sceneParser.getCamera();
+        int width = camera->getWidth();
+        int height = camera->getHeight();
+        Image image(width, height);
+        for (int x = 0; x < camera->getWidth(); ++x) {
+            for (int y = 0; y < camera->getHeight(); ++y) {
+                // 生成从相机到像素的光线
+                Ray camRay = camera->generateRay(Vector2f(x, y));
+                Group* baseGroup = sceneParser.getGroup();
+                Hit hit;
+                bool isIntersect = baseGroup->intersect(camRay, hit, 0);   
+                if (isIntersect) {
+                    // 计算交点处的光照效果
+                    Vector3f finalColor = Vector3f::ZERO;
+                    for (int li = 0; li < sceneParser.getNumLights(); ++li) {
+                        Light* light = sceneParser.getLight(li);
+                        Vector3f L, lightColor;
+                        light->getIllumination(camRay.pointAtParameter(hit.getT()), L, lightColor);
+                        finalColor += hit.getMaterial()->Shade(camRay, hit, L, lightColor);
+                    }
+                    image.SetPixel(x, y, finalColor);
+                } else {
+                    image.SetPixel(x, y, sceneParser.getBackgroundColor());
+                }
+            }
+        }
+        image.SaveBMP(outputFile.c_str());
+        return 0;
+    }
+    \end{minted}
+\end{listing}
+
+\subsection{光线与物体求交}
+光线投射的核心是计算光线与场景中各种几何体的交点.在本次实现中,我们实现了三种基本几何体的求交算法:平面,球体和三角形.
+\subsubsection{光线与平面求交}
+平面可以用点法式方程表示:$\vec{n} \cdot \vec{p} = d$,其中$\vec{n}$是平面的法向量,$d$是平面到原点的有向距离.光线可以表示为:$\vec{r}(t) = \vec{o} + t\vec{d}$,其中$\vec{o}$是光线的起点,$\vec{d}$是光线的方向,$t$是参数.光线方程代入平面方程,可以求解交点参数$t$:
+\begin{equation}
+    t = \frac{d - \vec{n} \cdot \vec{o}}{\vec{n} \cdot \vec{d}}
+\end{equation}
+\begin{algorithm}[H]
+    \caption{Ray-Plane Intersection Algorithm}
+    \label{alg:ray_plane}
+    \begin{algorithmic}[1]
+        \REQUIRE Ray $ray$, plane normal vector $normal$, plane constant $d$, minimum valid distance $tmin$
+        \ENSURE Whether intersection exists, intersection information
+        
+        \STATE Calculate denominator $denominator = normal \cdot ray.direction$
+        
+        \IF{$|denominator| < \epsilon$}
+            \RETURN false \COMMENT{Ray is parallel to plane, no intersection}
+        \ENDIF
+        
+        \STATE Calculate intersection parameter $t = \frac{d - normal \cdot ray.origin}{denominator}$
+        
+        \IF{$t \geq tmin$ AND $t < hit.t$}
+            \STATE Update intersection information $hit$
+            \RETURN true
+        \ELSE
+            \RETURN false
+        \ENDIF
+    \end{algorithmic}
+\end{algorithm}
+\begin{listing}[H]
+    \caption{实现 Plane::intersect}
+    \label{code:plane_intersect}
+    \begin{minted}{cpp}
+    bool intersect(const Ray &r, Hit &h, float tmin) override {
+        float denominator = Vector3f::dot(normal, r.getDirection());
+        // 如果光线方向与平面法线平行或几乎平行,则不相交
+        if (fabs(denominator) < 1e-8) {
+            return false;
+        }    
+        // 计算交点参数 t
+        float t = (d - Vector3f::dot(normal, r.getOrigin())) / denominator;
+        // 如果 t 在有效范围内,则有交点
+        if (t >= tmin && t < h.getT()) {
+            h.set(t, material, normal);
+            return true;
+        }
+        return false;
+    }
+    \end{minted}
+\end{listing}
+
+\subsubsection{光线与球体求交}
+球体可以表示为:$|\vec{p} - \vec{c}|^2 = r^2$,其中$\vec{c}$是球心,$r$是半径.将光线方程代入球体方程,可以得到一个关于$t$的二次方程:
+\begin{equation}
+    |\vec{o} + t\vec{d} - \vec{c}|^2 = r^2
+\end{equation}展开后得到:
+\begin{equation}
+    |\vec{d}|^2 t^2 + 2\vec{d} \cdot (\vec{o} - \vec{c})t + |\vec{o} - \vec{c}|^2 - r^2 = 0
+\end{equation}
+通过求解这个二次方程,可以得到光线与球体的交点参数$t$.
+\begin{algorithm}[H]
+    \caption{Ray-Sphere Intersection Algorithm}
+    \label{alg:ray_sphere}
+    \begin{algorithmic}[1]
+        \REQUIRE Ray $ray$, sphere center $center$, radius $radius$, minimum distance $tmin$
+        \ENSURE Intersection result and information
+        
+        \STATE $oc = ray.origin - center$
+        \STATE $a = |ray.direction|^2$
+        \STATE $b = 2(oc \cdot ray.direction)$
+        \STATE $c = |oc|^2 - radius^2$
+        \STATE $\Delta = b^2 - 4ac$
+        
+        \IF{$\Delta < 0$}
+            \RETURN false
+        \ENDIF
+        
+        \STATE $t = \frac{-b - \sqrt{\Delta}}{2a}$
+        
+        \IF{$t < tmin$}
+            \STATE $t = \frac{-b + \sqrt{\Delta}}{2a}$
+            \IF{$t < tmin$} \RETURN false \ENDIF
+        \ENDIF
+        
+        \IF{$t < hit.t$}
+            \STATE $p = ray.origin + t \cdot ray.direction$
+            \STATE $normal = \frac{p - center}{radius}$
+            \STATE Update $hit$ with $t$, $material$, $normal$
+            \RETURN true
+        \ENDIF
+        
+        \RETURN false
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{listing}[H]
+    \caption{实现 Sphere::intersect}
+    \label{code:sphere_intersect}
+    \begin{minted}{cpp}
+    bool intersect(const Ray &r, Hit &h, float tmin) override {
+        Vector3f oc = r.getOrigin() - center;
+        float a = r.getDirection().squaredLength();
+        float b = 2.0f * Vector3f::dot(oc, r.getDirection());
+        float c = oc.squaredLength() - radius * radius;
+        float discriminant = b * b - 4 * a * c;
+        if (discriminant < 0) {
+            return false;
+        }
+        float sqrtDiscriminant = sqrt(discriminant);
+        float t = (-b - sqrtDiscriminant) / (2.0f * a);
+        if (t < tmin) {
+            t = (-b + sqrtDiscriminant) / (2.0f * a);
+            if (t < tmin) {
+                return false;
+            }
+        }
+        if (t < h.getT()) {
+            Vector3f intersectionPoint = r.pointAtParameter(t);
+            Vector3f normal = (intersectionPoint - center).normalized();
+            h.set(t, material, normal);
+            return true;
+        }
+        return false;
+    }
+    \end{minted}
+\end{listing}
+
+\subsubsection{光线与三角形求交}
+三角形是构建复杂3D模型的基本单元.我们采用Möller-Trumbore算法进行光线与三角形的求交计算,这是一种不需要显式计算三角形所在平面方程的高效算法.该算法使用重心坐标系统,直接计算交点的重心坐标和参数值.
+算法首先计算光线方向与三角形一条边的叉积,用于判断光线是否与三角形平行.然后通过一系列向量运算得到交点的重心坐标$(u,v)$,这两个参数必须满足$u \geq 0$,$v \geq 0$且$u + v \leq 1$才表示交点在三角形内部.这种方法比传统的先求平面交点再判断点是否在三角形内的方法更加高效.
+\begin{algorithm}[H]
+    \caption{Möller-Trumbore Ray-Triangle Intersection Algorithm}
+    \label{alg:ray_triangle}
+    \begin{algorithmic}[1]
+        \REQUIRE Ray $ray$, triangle vertices $v0, v1, v2$, minimum distance $tmin$
+        \ENSURE Intersection result and information
+        
+        \STATE $edge1 = v1 - v0$ $edge2 = v2 - v0$
+        \STATE $pvec = ray.direction \times edge2$ $det = edge1 \cdot pvec$
+        
+        \IF{$|det| < \epsilon$}
+            \RETURN false \COMMENT{Ray parallel to triangle}
+        \ENDIF
+        
+        \STATE $invDet = 1 / det$
+        \STATE $tvec = ray.origin - v0$
+        \STATE $u = (tvec \cdot pvec) \cdot invDet$
+        
+        \IF{$u < 0$ OR $u > 1$}
+            \RETURN false
+        \ENDIF
+        
+        \STATE $qvec = tvec \times edge1$
+        \STATE $v = (ray.direction \cdot qvec) \cdot invDet$
+        
+        \IF{$v < 0$ OR $u + v > 1$}
+            \RETURN false
+        \ENDIF
+        
+        \STATE $t = (edge2 \cdot qvec) \cdot invDet$
+        
+        \IF{$t \geq tmin$ AND $t < hit.t$}
+            \STATE Update intersection information $hit$
+            \RETURN true
+        \ELSE
+            \RETURN false
+        \ENDIF
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{listing}[H]
+    \caption{实现 Triangle::intersect}
+    \label{code:triangle_intersect}
+    \begin{minted}{cpp}
+    bool intersect(const Ray& ray, Hit& hit, float tmin) override {
+        Vector3f edge1 = vertices[1] - vertices[0];
+        Vector3f edge2 = vertices[2] - vertices[0];
+        Vector3f pvec = Vector3f::cross(ray.getDirection(), edge2);
+        float det = Vector3f::dot(edge1, pvec);
+        if (fabs(det) < 1e-8) return false;
+        float invDet = 1.0f / det;
+        Vector3f tvec = ray.getOrigin() - vertices[0];
+        float u = Vector3f::dot(tvec, pvec) * invDet;
+        if (u < 0.0f || u > 1.0f) return false;
+        Vector3f qvec = Vector3f::cross(tvec, edge1);
+        float v = Vector3f::dot(ray.getDirection(), qvec) * invDet;
+        if (v < 0.0f || u + v > 1.0f) return false;
+        float t = Vector3f::dot(edge2, qvec) * invDet;
+        if (t >= tmin && t < hit.getT()) {
+            hit.set(t, material, normal);
+            return true;
+        }
+        return false;
+    }
+    \end{minted}
+\end{listing}
+\subsection{相机模型}
+基类 Camera 定义基本框架,子类 PerspectiveCamera 实现透视投影功能.相机构造时建立了一个正交坐标系:通过输入的中心位置,观察方向和上方向,计算出三个相互垂直的单位向量(观察方向,水平方向和上方向)作为相机的局部坐标系.透视相机额外存储视场角及其正切值以提高计算效率.光线生成过程首先将像素坐标转换为归一化设备坐标,考虑了视场角和宽高比的影响.然后将这些坐标映射到相机坐标系中,通过线性组合观察方向,水平方向和上方向向量,计算出光线的方向向量.最后创建一条从相机中心出发,沿计算方向的光线.这种方法准确模拟了透视效果,使远处物体看起来比近处物体小,产生真实的3D视觉效果.
+\begin{listing}[H]
+    \caption{实现 PerspectiveCamera}
+    \label{code:group_intersect}
+    \begin{minted}{cpp}
+    class PerspectiveCamera : public Camera {
+
+public:
+    PerspectiveCamera(const Vector3f &center, const Vector3f &direction,
+            const Vector3f &up, int imgW, int imgH, float angle) : Camera(center, direction, up, imgW, imgH) {
+        this->angle = angle;
+        this->tanAngle = tan(angle / 2);
+    }
+    Ray generateRay(const Vector2f &point) override {
+        float x = (2.0f * point.x() / width - 1) * tanAngle * width / height;
+        float y = -(1 - 2.0f * point.y() / height) * tanAngle;
+        Vector3f rayDir = direction + x * horizontal + y * up;
+        rayDir = rayDir.normalized();
+        return Ray(center, rayDir);
+    }
+
+    \end{minted}
+\end{listing}
+
+\subsection{光照模型}
+\subsection{物体组场景管理}
+为了高效地管理场景中的多个物体,我们实现了Group类,它可以包含多个Object3D对象,并提供统一的求交接口.
+\begin{listing}[H]
+    \caption{实现 Group::intersect}
+    \label{code:group_intersect}
+    \begin{minted}{cpp}
+    bool intersect(const Ray &r, Hit &h, float tmin) override {
+        bool result = false;
+        for (auto obj : objects) {
+            if (obj && obj->intersect(r, h, tmin)) {
+                result = true;
+            }
+        }
+        return result;
+    }
+    \end{minted}
+\end{listing}
+
+\subsection{光照模型}
+我们使用Phong光照模型来计算交点处的光照效果.Phong模型包括三个组成部分:环境光,漫反射和镜面反射.
+\begin{algorithm}[H]
+    \caption{Phong Illumination Model}
+    \label{alg:phong}
+    \begin{algorithmic}[1]
+        \REQUIRE Incident ray $ray$, intersection information $hit$, light direction $dirToLight$, light color $lightColor$
+        \ENSURE Computed color
+        \STATE Get surface normal $N = hit.normal$
+        \STATE Calculate diffuse coefficient $diffuseTerm = \max(0, dirToLight \cdot N)$
+        \STATE Calculate reflection vector $R = 2(dirToLight \cdot N)N - dirToLight$
+        \STATE Calculate view vector $V = -ray.direction$
+        \STATE Calculate specular coefficient $specularTerm = \max(0, V \cdot R)^{shininess}$
+        \STATE Compute final color $color = lightColor \cdot diffuseColor \cdot diffuseTerm + lightColor \cdot specularColor \cdot specularTerm$
+        
+        \RETURN $color$
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{listing}[H]
+    \caption{实现 Material::Shade}
+    \label{code:material_shade}
+    \begin{minted}{cpp}
+    Vector3f Shade(const Ray &ray, const Hit &hit,
+                   const Vector3f &dirToLight, const Vector3f &lightColor) {
+        Vector3f shaded = Vector3f::ZERO;
+        Vector3f N = hit.getNormal();
+        float diffuseTerm = std::max(0.0f, Vector3f::dot(dirToLight, N));
+        Vector3f L = dirToLight;
+        Vector3f R = (2.0f * Vector3f::dot(L, N) * N - L).normalized();
+        Vector3f V = -ray.getDirection().normalized();
+        float specularTerm = std::pow(std::max(0.0f, Vector3f::dot(V, R)), shininess);
+        shaded = lightColor * diffuseColor * diffuseTerm + 
+                 lightColor * specularColor * specularTerm;
+        
+        return shaded;
+    }
+    \end{minted}
+\end{listing}
+
+\section{Honor Code}
+本次实现参考了课程提供的框架代码和PPT, 在实现过程中,我与Claude Sonnet 3.7模型进行了关于算法思路的交互，并独立完成了所有TODO部分的代码编写,通过自己的理解实现各个组件.
+\section{Test}
+通过了OJ自动评测,并自己构造了如下测试例子
+
+\end{document}
