@@ -18,7 +18,6 @@ public:
     }
     
 private:
-    //  DP 实现组合数
     static int binomialCoeff(int n, int k) {
         if (k < 0 || k > n) return 0;
         if (k == 0 || k == n) return 1;
@@ -186,7 +185,7 @@ public:
                     } else if (i > 0) {
                         cp.T = (cp.V - data.back().V).normalized();
                     } else {
-                        cp.T = Vector3f(1, 0, 0); // 默认切线
+                        cp.T = Vector3f(1, 0, 0); 
                     }
                 }
                 

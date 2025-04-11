@@ -1,5 +1,17 @@
 ### PA0
 
+#### Run
+
+```bash
+bash ./run_all .sh
+```
+
+#### Results
+
+| 1                                                | 2                                |
+| ------------------------------------------------ | -------------------------------- |
+| ![canvas01](assets/canvas01-1744356653447-2.bmp) | ![canvas02](assets/canvas02.bmp) |
+
 #### Structure
 
 ```txt
@@ -28,18 +40,4 @@
 ├─src
 └─testcases
 ```
-
-#### Run
-
-- require: CMake
-
-```bash
-bash ./run_all .sh
-```
-
-#### Results
-
-| 1                                                | 2                                |
-| ------------------------------------------------ | -------------------------------- |
-| ![canvas01](assets/canvas01-1744356653447-2.bmp) | ![canvas02](assets/canvas02.bmp) |
 
