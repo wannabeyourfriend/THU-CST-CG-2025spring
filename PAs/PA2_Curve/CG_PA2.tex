@@ -1,0 +1,119 @@
+\documentclass[a4paper,twoside]{article}
+
+\usepackage[UTF8, scheme = plain]{ctex}%提供中文支持的包,与XeLaTeX一起使用
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{minted}% 语法高亮和代码样式设置方面更加强大和灵活
+\usepackage{listings}% 引入listings包,用于在文档中插入代码,并可自定义代码样式
+\usepackage[a4paper, total={7in, 11in}, top=0.2in]{geometry}
+\usepackage{graphicx}% 用于插入图片
+\usepackage{float}% 提供H选项以固定图片位置
+\usepackage{amsmath}% 提供数学公式支持
+
+\title{Computer Graphic PA2}
+\author{
+  王子轩\\
+  \texttt{2023011307} \\
+  \texttt{wang-zx23@mails.tsinghua.edu.cn} \\
+}
+\date{2025/4/12}
+
+\begin{document}
+\maketitle
+
+\section{曲线性质}
+\subsection{Bezier曲线与B样条曲线的异同}
+\subsubsection{相同点}
+Bezier曲线和B样条曲线都是参数化曲线,通过参数$t$映射到空间中的点集,形式上可表示为$C(t): [0,1] \rightarrow \mathbb{R}^n$.其次,两者都具有仿射不变性,即对控制点$P_i$应用仿射变换$T$后得到的曲线等价于对原曲线应用相同变换:$C(T(P_0), T(P_1), ..., T(P_n); t) = T(C(P_0, P_1, ..., P_n; t))$.它们都满足凸包性质,即曲线完全位于其控制点形成的凸包内,保证曲线不会出现超出控制点范围的异常波动.两种曲线都可以通过de Casteljau算法或矩阵形式进行计算.
+\subsubsection{相异点}
+Bezier曲线的最显著特点是其全局性,即每个控制点都会影响整条曲线的形状.n阶Bezier曲线可以表示为:
+\begin{equation}
+C(t) = \sum_{i=0}^{n} P_i B_i^n(t), \quad t \in [0,1]
+\end{equation}
+其中$B_i^n(t) = \binom{n}{i} t^i (1-t)^{n-i}$是Bernstein基函数.由于每个基函数在整个参数域上都非零,修改任一控制点都会影响整条曲线.
+相比之下,B样条曲线具有局部性,每个控制点仅影响曲线的局部区域.k阶B样条曲线定义为:
+\begin{equation}
+C(t) = \sum_{i=0}^{n} P_i N_{i,k}(t), \quad t \in [t_{k-1}, t_{n+1}]
+\end{equation}
+其中$N_{i,k}(t)$是k阶B样条基函数,由Cox-de Boor递归公式定义:
+\begin{equation}
+N_{i,1}(t) = 
+\begin{cases}
+1, & \text{if } t_i \leq t < t_{i+1} \\
+0, & \text{otherwise}
+\end{cases}
+\end{equation}
+
+\begin{equation}
+N_{i,k}(t) = \frac{t - t_i}{t_{i+k-1} - t_i} N_{i,k-1}(t) + \frac{t_{i+k} - t}{t_{i+k} - t_{i+1}} N_{i+1,k-1}(t)
+\end{equation}
+
+由于B样条基函数的局部支撑性质,控制点$P_i$仅影响参数区间$[t_i, t_{i+k}]$上的曲线形状,这使得B样条曲线在交互式设计中更为灵活.Bezier曲线在拼接时则需要特别处理才能保证高阶连续性.通常需要使相邻段的端点及其导数相等,这限制了控制点的自由度.而n阶B样条曲线天然具有$C^{n-2}$连续性,无需额外约束即可保证平滑过渡,这是其在曲线建模中的重要优势.此外,Bezier曲线的阶数由控制点数量决定(n+1个控制点定义n阶曲线),而B样条曲线的阶数k可以独立于控制点数量n设置,只要满足$k \leq n+1$.这种灵活性使B样条能够在保持较低阶数(通常3或4阶)的同时使用大量控制点,避免了高阶Bezier曲线可能带来的数值不稳定性.
+
+\subsection{绘制首尾相接且接点处连续的B样条}
+
+周期性B样条通过周期性重复控制点和适当设置节点向量,使曲线在首尾连接处保持所需的连续.对于k阶B样条,我们需要将前k-1个控制点复制到序列末尾,形成扩展控制点序列:$\{P_0, P_1, ..., P_{n-1}, P_0, P_1, ..., P_{k-2}\}$.这样,当参数t循环一周时,曲线会平滑地回到起点.假设有n个原始控制点$P_0, P_1, ..., P_{n-1}$,要构造k阶周期B样条,我们首先创建扩展控制点序列,然后构造均匀节点向量$\{t_0, t_1, ..., t_{n+2k-2}\}$,其中$t_i = i$或其他均匀分布.这种设置确保了曲线在首尾连接处具有$C^{k-2}$连续性.对于k阶周期B样条,参数t在$[t_{k-1}, t_n]$范围内的曲线点$C(t)$可表示为:
+
+\begin{equation}
+C(t) = \sum_{i=0}^{n+k-2} P_{i \bmod n} \cdot N_{i,k}(t)
+\end{equation}
+
+其中,$N_{i,k}(t)$是k阶B样条基函数,$P_{i \bmod n}$表示在原始控制点序列中循环取值.这种表达方式自然地处理了控制点的周期性,确保了曲线的闭合性.可以通过以下步骤构造闭合B样条:首先,复制前k-1个控制点到序列末尾;然后,构造适当的节点向量;最后,使用标准的B样条求值算法(如de Boor算法)计算曲线点.
+
+\section{代码逻辑}
+\subsection{revsurface.hpp中旋转曲面的绘制逻辑}
+revsurface.hpp文件实现旋转曲面的生成和渲染功能的核心是将二维参数曲线转换为三维网格表示.旋转曲面的数学定义可表示为:给定参数曲线$C(t) = (x(t), y(t), 0)$,$t \in [0,1]$,绕y轴旋转得到的表面可以参数化为:
+
+\begin{equation}
+S(t, \theta) = (x(t)\cos\theta, y(t), x(t)\sin\theta), \quad t \in [0,1], \theta \in [0, 2\pi]
+\end{equation}
+
+其中$t$是曲线参数,$\theta$是旋转角度.该表面的法向量可以通过参数曲面的偏导数叉积计算:
+
+\begin{equation}
+\vec{N}(t, \theta) = \frac{\partial S}{\partial t} \times \frac{\partial S}{\partial \theta}
+\end{equation}
+
+在revsurface.hpp的中,首先确保输入曲线位于xy平面(z坐标为0),然后采用离散化方法生成表面网格,将连续的参数域$(t, \theta)$离散为有限的采样点.曲线参数t被离散为30个点,旋转角度$\theta$被离散为40个点,形成一个30×40的网格.对于每个网格点$(t_i, \theta_j)$,代码计算其三维坐标和法向量.坐标计算遵循上述参数方程,使用四元数和旋转矩阵实现旋转变换:
+
+\begin{minted}{cpp}
+float t = (float) i / steps;  // 归一化角度参数
+Quat4f rot;
+rot.setAxisAngle(t * 2 * 3.14159, Vector3f::UP);  // 设置绕y轴的旋转
+Vector3f pnew = Matrix3f::rotation(rot) * cp.V;  // 应用旋转变换
+\end{minted}
+
+法向量计算利用曲线切线和旋转方向的几何关系.计算原始平面上的法向量(切线与-z方向的叉积),然后应用相同的旋转变换:
+
+\begin{minted}{cpp}
+Vector3f pNormal = Vector3f::cross(cp.T, -Vector3f::FORWARD);
+Vector3f nnew = Matrix3f::rotation(rot) * pNormal;
+\end{minted}
+
+生成网格点后,代码构建三角形网格拓扑结构.表面被划分为四边形网格,每个四边形由两个三角形组成.索引计算处理了网格的连接关系,确保了表面的连续性:
+
+\begin{minted}{cpp}
+int i1 = (i + 1 == steps) ? 0 : i + 1;  // 处理旋转方向的循环
+if (ci != curvePoints.size() - 1) {  // 非曲线终点
+    surface.VF.emplace_back((ci + 1) * steps + i, ci * steps + i1, ci * steps + i);
+    surface.VF.emplace_back((ci + 1) * steps + i, (ci + 1) * steps + i1, ci * steps + i1);
+}
+\end{minted}
+
+这里,`i1`处理了旋转方向的循环连接,使表面在旋转一周后闭合.条件判断`ci != curvePoints.size() - 1`确保只在非曲线终点处生成三角形,避免了超出边界的索引访问.最后使用OpenGL的即时模式API渲染三角形网格.对每个三角形,依次设置三个顶点的法向量和位置,实现了带光照的表面渲染:
+
+\begin{minted}{cpp}
+glBegin(GL_TRIANGLES);
+for (unsigned i = 0; i < surface.VF.size(); i++) {
+    glNormal3fv(surface.VN[std::get<0>(surface.VF[i])]);
+    glVertex3fv(surface.VV[std::get<0>(surface.VF[i])]);
+    // 设置其他两个顶点...
+}
+glEnd();
+\end{minted}
+
+整个实现采用了Surface数据结构存储几何信息,包括顶点位置(VV),法向量(VN)和三角形索引(VF).
+
+\section{Honor Code}
+完成本次作业的过程与Claude Sonnet 3.7就OpenGL框架的调试和环境配置,以及代码框架理解进行交互,自己完成了代码实现没有参考其他同学的解法.报告撰写参考了课程提供的框架代码和教材中关于参数化曲线的相关章节以及维基百科内容,包括Bezier曲线和B样条曲线的数学定义和性质.对于旋转曲面的实现,我理解了`revsurface.hpp`中的代码逻辑,并基于此完成了自己的实现.
+\end{document}

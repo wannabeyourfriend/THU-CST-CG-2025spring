@@ -379,8 +379,82 @@ public:
     \end{minted}
 \end{listing}
 
+\section{Problem and Solution}
+
+\subsection{数值精度}
+
+\subsubsection{浮点数比较}
+在判断光线是否与平面或三角形平行时,我们需要检查点积结果是否接近零:
+\begin{minted}{cpp}
+// 平面求交中
+if (fabs(denominator) < 1e-8) {
+    return false;
+}
+
+// 三角形求交中
+if (fabs(det) < 1e-8) return false;
+\end{minted}
+
+这里使用了$10^{-8}$作为阈值,而不是直接与0比较.这是因为浮点数计算中的舍入误差可能导致理论上应该为0的值实际上是一个非常小的数.选择合适的阈值是一个经验性的过程,太大会导致有效交点被忽略,太小则可能导致数值不稳定.
+
+\subsubsection{自相交问题}
+光线可能会与发出点所在的表面再次相交.为了避免这种"自相交"问题,使用参数$tmin$来控制最近交点的更新:
+\begin{minted}{cpp}
+if (t >= tmin && t < h.getT()) {
+    // 更新交点信息
+}
+\end{minted}
+
+通过设置适当的$tmin$值,可以忽略与起点过近的交点,有效避免自相交问题.
+
+\subsection{三角形法向量计算}
+三角形求交的时候，很重要的事如何确定三角形的法向量,可以
+
+\begin{enumerate}
+    \item 预计算法向量:在构造三角形时计算并存储法向量
+    \item 动态计算法向量:在求交时通过叉积计算法向量
+\end{enumerate}
+我选择了第一种方法,在三角形构造时预先计算法向量:
+\begin{minted}{cpp}
+Triangle(const Vector3f &v1, const Vector3f &v2, const Vector3f &v3, Material *m) : Object3D(m) {
+    vertices[0] = v1;
+    vertices[1] = v2;
+    vertices[2] = v3;
+    normal = Vector3f::cross(v2 - v1, v3 - v1).normalized();
+}
+\end{minted}
+
+不需要在每次求交时重新计算法向量.缺点是无法支持平滑着色(每个顶点有不同法向量的情况).
+
+\subsection{光线方向归一化问题}
+在相机生成光线时,确保光线方向向量是单位向量非常重要:
+\begin{minted}{cpp}
+Ray generateRay(const Vector2f &point) override {
+    float x = (2.0f * point.x() / width - 1) * tanAngle * width / height;
+    float y = -(1 - 2.0f * point.y() / height) * tanAngle;
+    Vector3f rayDir = direction + x * horizontal + y * up;
+    rayDir = rayDir.normalized(); // 确保是单位向量
+    return Ray(center, rayDir);
+}
+\end{minted}
+
+如果不进行归一化,会导致两个问题:
+\begin{enumerate}
+    \item 交点距离计算错误:$t$值将不再表示实际距离
+    \item 光照计算不准确:Phong模型中的向量点积依赖于单位向量
+\end{enumerate}
+
+我们通过在生成光线时显式调用\texttt{normalized()}方法来解决这个问题,确保所有光线方向都是单位向量.
+
+\subsection{光照模型中的反射向量计算}
+在Phong光照模型中,正确计算反射向量
+\begin{minted}{cpp}
+Vector3f R = (2.0f * Vector3f::dot(L, N) * N - L).normalized();
+\end{minted}
+这里使用了向量公式 $\vec{R} = 2(\vec{L} \cdot \vec{N})\vec{N} - \vec{L}$ 来计算反射向量.需要注意的是,这个公式假设 $\vec{L}$ 是指向光源的向量,而不是从光源出发的向量.此外要确保对计算得到的反射向量进行归一化,以保证后续点积计算的准确性.在实践中,如果输入的 $\vec{L}$ 和 $\vec{N}$ 已经是单位向量,理论上结果也应该是单位向量,但由于浮点数精度问题,显式归一化可以避免潜在的精度累积误差.
+
 \section{Honor Code}
-本次实现参考了课程提供的框架代码和PPT, 在实现过程中,我与Claude Sonnet 3.7模型进行了关于算法思路的交互，并独立完成了所有TODO部分的代码编写,通过自己的理解实现各个组件.
+本次实现参考了课程提供的框架代码和PPT, 在实现过程中,我与Claude Sonnet 3.7模型进行了关于算法思路的交互,并独立完成了所有TODO部分的代码编写,通过自己的理解实现各个组件.
 \section{Test}
 通过了OJ自动评测,并自己构造了如下测试例子
 
