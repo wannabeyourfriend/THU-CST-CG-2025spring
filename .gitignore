@@ -1,0 +1,179 @@
+# Build artifacts
+build/
+cmake-build-*/
+out/
+release/
+debug/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps/
+CMakeUserPresets.json
+
+# Compiled Object files
+*.o
+*.obj
+*.ko
+*.elf
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+*.la
+*.lo
+
+# Executables
+*.exe
+*.out
+*.app
+*.i*86
+*.x86_64
+*.hex
+
+# Debug files
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Qt
+*.pro.user
+*.qmlc
+*.jsc
+Makefile*
+*build-*
+*.moc
+*.qrc.rs
+qrc_*.cpp
+Qmake
+*.autosave
+
+# Qt uic
+ui_*.h
+
+# Qt Creator
+*.autosave
+
+# Qtqml
+*.qmlc
+*.jsc
+
+# Mac
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+.history/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.vcxproj
+*.vcxproj.filters
+*.sln
+
+# JetBrains IDEs: IntelliJ, CLion, Rider
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Xcode
+*.xcodeproj/
+*.xcworkspace/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+Session.vim
+Sessionx.vim
+.netrwhist
+*~
+
+# Emacs
+*~
+\#*\#
+.\#*
+.dir-locals.el
+.projectile
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.cache
+*.bak
+*.swp
+
+# Package files
+*.tar
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.zip
+*.7z
+*.rar
+
+# Markdown
+*.pdf
+*.dvi
+*.ps
+
+# Doxygen
+doxygen/html/
+doxygen/latex/
+Doxyfile
+Doxyfile.bak
+
+# LLVM
+*.bc
+
+# Texture files (if needed)
+*.tga
+*.bmp
+
+# Model files
+*.obj.mtl
+
+# Keep assets directory but ignore specific file types if needed
+# assets/*.tmp
